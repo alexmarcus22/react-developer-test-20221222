@@ -1,5 +1,4 @@
-import React from "react";
-import { State } from "../store/actions";
+import React, { useState } from 'react';
 import LoadingSpin from "react-loading-spin";
 import Button from '@mui/material/Button';
 import Table from '@mui/material/Table';
@@ -7,15 +6,15 @@ import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
+import { useAppDispatch } from '../hooks';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import { CSSProperties } from "react";
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import { fetchAllData } from '../features/data/dataSlice';
 
-type Props = {
-  fetchData: () => void
-  state: State,
-  sortData: (value: React.SetStateAction<boolean>) => void,
-  sort: Boolean
+interface TableProps {
+  getData: ResponseState,
+  type: String
 };
 
 const errorStyle: CSSProperties = {
@@ -37,21 +36,32 @@ const iconStyle: CSSProperties = {
   verticalAlign: 'middle'
 }
 
-export const TableData = ({ fetchData, state, sort, sortData }: Props) => {
-  const { loading, errResp, data } = state;
-  const arrow = (sort) ? <ArrowUpwardIcon style={iconStyle} /> : <ArrowDownwardIcon style={iconStyle} />
+
+export const TableData = ({ getData, type }: TableProps) => {
+  const { data, loading, errResp } = getData;
+  const dispatch = useAppDispatch();
+  const [sortDesc, setSort] = useState<Boolean>(false);
+  const arrow = (sortDesc) ? <ArrowUpwardIcon style={iconStyle} /> : <ArrowDownwardIcon style={iconStyle} />
+
+  const handleLoadMore = () => {
+    dispatch(fetchAllData(sortDesc, type));
+  }
+
   return (
     <Table style={tableStyle}>
       <TableHead>
         <TableRow>
-          <TableCell scope="col" onClick={() => !loading ? sortData(!sort) : null}>Date {arrow}</TableCell>
+          <TableCell scope="col" onClick={() => !loading ? setSort(!sortDesc) : null}>Date {arrow}</TableCell>
           <TableCell scope="col">UserID</TableCell>
           <TableCell scope="col">Old Value</TableCell>
           <TableCell scope="col">New Value</TableCell>
         </TableRow>
       </TableHead>
       <TableBody>
-        {data.length > 0 && data.map((key) => {
+        {data.length > 0 && data.slice().sort((a, b) => {
+          if (sortDesc) return a.timestamp - b.timestamp;
+          return b.timestamp - a.timestamp;
+        }).map((key) => {
           const date = new Date(key.timestamp);
           return (
             <TableRow key={key.id}>
@@ -62,7 +72,7 @@ export const TableData = ({ fetchData, state, sort, sortData }: Props) => {
                 {key.id}
               </TableCell>
               <TableCell>
-                {key.diff[0].newValue}
+                {key.diff[0].oldValue}
               </TableCell>
               <TableCell>
                 {key.diff[0].newValue}
@@ -72,9 +82,9 @@ export const TableData = ({ fetchData, state, sort, sortData }: Props) => {
         })}
         <TableRow>
           <TableCell colSpan={4} className='table-button'>
-            {!loading ? (!errResp.errMsg ? <Button variant="contained" onClick={fetchData}>Load More</Button> : <div>
+            {!loading ? (errResp.errMsg.length <= 0 ? <Button variant="contained" onClick={() => handleLoadMore()}>Load More</Button> : <div>
               <div style={errorStyle}>We had problems fetching your data. Please try again.</div>
-              <Button variant="contained" onClick={fetchData}>Retry</Button>
+              <Button variant="contained" onClick={() => handleLoadMore()}>Retry</Button>
             </div>) : <LoadingSpin />}
           </TableCell>
         </TableRow>
